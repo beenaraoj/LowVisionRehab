@@ -9,6 +9,7 @@ import {
   wordOffsetPx,
 } from '../lib/geometry';
 import { useViewportSize } from '../lib/useViewport';
+import { speak } from '../lib/audio';
 import { DOT_COLORS } from '../lib/colors';
 import DotWordDisplay from '../components/DotWordDisplay';
 
@@ -246,6 +247,13 @@ export default function SettingsScreen({ settings, calibration, onSave, onBack }
             Off
           </button>
         </div>
+        <button
+          onClick={() =>
+            speak('Hello! This is how the exercise prompts will sound.', true)
+          }
+        >
+          🔊 Test the voice
+        </button>
       </div>
 
       <div className="field">
