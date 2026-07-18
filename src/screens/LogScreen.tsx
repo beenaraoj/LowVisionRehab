@@ -24,6 +24,38 @@ function fmtDuration(sec: number): string {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
+function SessionSummary({ session: s }: { session: SessionRecord }) {
+  switch (s.exercise) {
+    case 'dot-fixation': {
+      const read = s.results.filter((r) => r.read).length;
+      return (
+        <span>
+          Dot reading — {s.settings.gazeDirection} {s.settings.eccentricityDeg}°, letters{' '}
+          {s.settings.letterHeightDeg}° · {read}/{s.results.length} words read
+        </span>
+      );
+    }
+    case 'letter-test':
+      return (
+        <span>
+          Letter check —{' '}
+          {s.thresholdDeg !== null
+            ? `smallest letter ${s.thresholdDeg.toFixed(2)}° (${s.reversals.length} reversals, ${s.presentations} letters)`
+            : `no threshold (${s.presentations} letters shown)`}
+        </span>
+      );
+    case 'fixation-drill':
+      return (
+        <span>
+          Hold steady —{' '}
+          {s.holdsSec.length > 0
+            ? `best ${Math.max(...s.holdsSec)}s of ${s.targetHoldSec}s target, ${s.holdsSec.length} holds`
+            : 'no holds completed'}
+        </span>
+      );
+  }
+}
+
 /** Local session history — clinician-facing for now; export comes later. */
 export default function LogScreen({ onBack }: Props) {
   const [sessions] = useState<SessionRecord[]>(loadSessions);
@@ -38,22 +70,16 @@ export default function LogScreen({ onBack }: Props) {
 
       {sessions.length === 0 && <p className="muted">No sessions recorded yet.</p>}
 
-      {sessions.slice(0, shown).map((s) => {
-        const read = s.results.filter((r) => r.read).length;
-        return (
-          <div key={s.id} className="session-item">
-            <strong>{DATE_FMT.format(new Date(s.startedAt))}</strong>
-            <span>
-              Dot reading — {s.settings.gazeDirection} {s.settings.eccentricityDeg}°, letters{' '}
-              {s.settings.letterHeightDeg}°
-            </span>
-            <span>
-              {read}/{s.results.length} words read · {fmtDuration(s.durationSec)}
-              {!s.completed && ' · ended early'}
-            </span>
-          </div>
-        );
-      })}
+      {sessions.slice(0, shown).map((s) => (
+        <div key={s.id} className="session-item">
+          <strong>{DATE_FMT.format(new Date(s.startedAt))}</strong>
+          <SessionSummary session={s} />
+          <span>
+            {fmtDuration(s.durationSec)}
+            {!s.completed && ' · ended early'}
+          </span>
+        </div>
+      ))}
 
       {sessions.length > shown && (
         <button onClick={() => setShown((n) => n + PAGE_SIZE)}>

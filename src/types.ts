@@ -39,19 +39,50 @@ export interface ExerciseSettings {
   polarity: Polarity;
   /** Speak short prompts (instructions, "Did you read the word?") via speech synthesis */
   audioPrompts: boolean;
+  /** Letter test: starting letter size in degrees for the staircase */
+  letterStartDeg: number;
+  /** Fixation drill: seconds counted as a full successful hold */
+  fixationTargetSec: number;
+  /** Fixation drill: number of hold trials per session */
+  fixationTrials: number;
 }
+
+export type ExerciseType = 'dot-fixation' | 'letter-test' | 'fixation-drill';
 
 export interface WordResult {
   word: string;
   read: boolean;
 }
 
-export interface SessionRecord {
+interface SessionBase {
   id: string;
   startedAt: string; // ISO date
-  exercise: 'dot-fixation';
   durationSec: number;
-  completed: boolean; // false if ended early via the End button
+  completed: boolean; // false if ended early
+}
+
+export interface DotFixationSession extends SessionBase {
+  exercise: 'dot-fixation';
   settings: Omit<ExerciseSettings, 'words'> & { wordCount: number };
   results: WordResult[];
 }
+
+export interface LetterTestSession extends SessionBase {
+  exercise: 'letter-test';
+  /** Mean of the reversal sizes, in degrees — the tracked self-monitoring number. null = could not see even the largest letter */
+  thresholdDeg: number | null;
+  /** Letter sizes (degrees) at each staircase reversal */
+  reversals: number[];
+  /** Number of letter presentations answered */
+  presentations: number;
+}
+
+export interface FixationDrillSession extends SessionBase {
+  exercise: 'fixation-drill';
+  /** Seconds each trial's fixation was held before fading (capped at target) */
+  holdsSec: number[];
+  targetHoldSec: number;
+  dotColor: DotColor;
+}
+
+export type SessionRecord = DotFixationSession | LetterTestSession | FixationDrillSession;

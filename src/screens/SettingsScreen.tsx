@@ -184,6 +184,52 @@ export default function SettingsScreen({ settings, calibration, onSave, onBack }
         </div>
       </div>
 
+      <h2>Letter check</h2>
+      <div className="field">
+        <label>Starting letter size (degrees)</label>
+        <div className="stepper">
+          <button
+            onClick={() => set('letterStartDeg', Math.max(0.5, s.letterStartDeg - 0.25))}
+          >
+            −
+          </button>
+          <span className="value">{s.letterStartDeg.toFixed(2)}°</span>
+          <button onClick={() => set('letterStartDeg', Math.min(5, s.letterStartDeg + 0.25))}>
+            +
+          </button>
+        </div>
+      </div>
+
+      <h2>Hold steady drill</h2>
+      <div className="field">
+        <label>Target hold (seconds)</label>
+        <div className="stepper">
+          <button
+            onClick={() => set('fixationTargetSec', Math.max(5, s.fixationTargetSec - 5))}
+          >
+            −
+          </button>
+          <span className="value">{s.fixationTargetSec} s</span>
+          <button
+            onClick={() => set('fixationTargetSec', Math.min(120, s.fixationTargetSec + 5))}
+          >
+            +
+          </button>
+        </div>
+      </div>
+      <div className="field">
+        <label>Holds per session</label>
+        <div className="stepper">
+          <button onClick={() => set('fixationTrials', Math.max(1, s.fixationTrials - 1))}>
+            −
+          </button>
+          <span className="value">{s.fixationTrials}</span>
+          <button onClick={() => set('fixationTrials', Math.min(10, s.fixationTrials + 1))}>
+            +
+          </button>
+        </div>
+      </div>
+
       <div className="field">
         <label>Audio prompts</label>
         <div className="choices">

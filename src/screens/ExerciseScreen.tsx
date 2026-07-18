@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Calibration, ExerciseSettings, WordResult } from '../types';
+import type { Calibration, DotFixationSession, ExerciseSettings, WordResult } from '../types';
 import {
   dotDiameterPx,
   fontSizeForLetterHeight,
@@ -7,10 +7,9 @@ import {
   stimulusFits,
   wordOffsetPx,
 } from '../lib/geometry';
-import { useViewportSize, useVisualViewportScale, isZoomAccurate } from '../lib/useViewport';
+import { useSessionSaver, useCalibrationGuards } from '../lib/useSession';
 import { speak, stopSpeaking } from '../lib/audio';
 import { shuffled } from '../lib/words';
-import { saveSession } from '../lib/storage';
 import DotWordDisplay from '../components/DotWordDisplay';
 
 interface Props {
@@ -30,45 +29,47 @@ const ANSWER_ARM_MS = 300;
  *             same tap can never also fire on the buttons rendered next)
  *  - respond: "Did you read the word?" YES / NO (briefly disarmed after
  *             mount as a second defence against tap-through)
- * Loops until the timed session elapses, then shows a summary. The session
- * keeps one stable id and is also saved on pagehide/backgrounding, so a
- * closed tab or evicted page never silently loses clinical data.
+ * Loops until the timed session elapses, then shows a summary.
  */
 export default function ExerciseScreen({ settings, calibration, onExit }: Props) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [results, setResults] = useState<WordResult[]>([]);
   const [queue, setQueue] = useState<string[]>(() => shuffled(settings.words));
   const [armed, setArmed] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
 
-  const startRef = useRef(0);
-  const sessionIdRef = useRef('');
-  const finishedRef = useRef(false);
-  // Mirrors for the pagehide listener, which can't see current state.
   const resultsRef = useRef<WordResult[]>([]);
   resultsRef.current = results;
 
-  const { vw, vh } = useViewportSize();
-  const zoomScale = useVisualViewportScale();
-  const zoomOk = isZoomAccurate(zoomScale);
+  const { vw, vh, zoomOk, screenChanged } = useCalibrationGuards(calibration);
+
+  const session = useSessionSaver(
+    (completed): DotFixationSession => ({
+      id: session.sessionId(),
+      startedAt: session.startedAtIso(),
+      exercise: 'dot-fixation',
+      durationSec: session.elapsedSec(),
+      completed,
+      settings: {
+        gazeDirection: settings.gazeDirection,
+        eccentricityDeg: settings.eccentricityDeg,
+        dotColor: settings.dotColor,
+        letterHeightDeg: settings.letterHeightDeg,
+        sessionMinutes: settings.sessionMinutes,
+        polarity: settings.polarity,
+        audioPrompts: settings.audioPrompts,
+        letterStartDeg: settings.letterStartDeg,
+        fixationTargetSec: settings.fixationTargetSec,
+        fixationTrials: settings.fixationTrials,
+        wordCount: settings.words.length,
+      },
+      results: resultsRef.current,
+    }),
+  );
 
   const offset = wordOffsetPx(settings.gazeDirection, settings.eccentricityDeg, calibration);
   const fontPx = fontSizeForLetterHeight(settings.letterHeightDeg, calibration);
   const dotPx = dotDiameterPx(calibration);
   const currentWord = queue[0] ?? '';
-
-  // Stale-calibration guard: if the screen's CSS-point dimensions changed
-  // since calibration (iPadOS Display Zoom, different device), every px→degree
-  // conversion is wrong. Block until recalibrated. Compared orientation-
-  // invariantly (min/max) because iPad Safari swaps screen.width/height
-  // when the device rotates — rotation is NOT a calibration change.
-  const screenChanged =
-    calibration.screenW !== undefined &&
-    calibration.screenH !== undefined &&
-    (Math.min(calibration.screenW, calibration.screenH) !==
-      Math.min(window.screen.width, window.screen.height) ||
-      Math.max(calibration.screenW, calibration.screenH) !==
-        Math.max(window.screen.width, window.screen.height));
 
   // Gate Begin on the LONGEST word in the list, not whichever happens to be
   // shuffled first — every word of the session must fit.
@@ -76,74 +77,12 @@ export default function ExerciseScreen({ settings, calibration, onExit }: Props)
   // Re-checked live for the word on screen (rotation mid-session).
   const currentWordFits = stimulusFits(currentWord.length || 1, fontPx, offset, vw, vh);
 
-  // Safety pauses (zoom / doesn't-fit) must not consume prescribed training
-  // time: accumulate paused wall-clock and subtract it from the session timer.
+  // Safety pauses must not consume prescribed training time.
   const paused = phase === 'fixate' && (!zoomOk || !currentWordFits);
-  const pausedAccumRef = useRef(0);
-  const pauseStartRef = useRef(0);
   useEffect(() => {
-    if (!paused) return;
-    pauseStartRef.current = Date.now();
-    return () => {
-      pausedAccumRef.current += Date.now() - pauseStartRef.current;
-      pauseStartRef.current = 0;
-    };
-  }, [paused]);
-
-  const pausedMs = () =>
-    pausedAccumRef.current +
-    (pauseStartRef.current ? Date.now() - pauseStartRef.current : 0);
-  const elapsedSec = () =>
-    Math.round((Date.now() - startRef.current - pausedMs()) / 1000);
-
-  const buildRecord = (completed: boolean, finalResults: WordResult[]) => ({
-    id: sessionIdRef.current,
-    startedAt: new Date(startRef.current).toISOString(),
-    exercise: 'dot-fixation' as const,
-    durationSec: elapsedSec(),
-    completed,
-    settings: {
-      gazeDirection: settings.gazeDirection,
-      eccentricityDeg: settings.eccentricityDeg,
-      dotColor: settings.dotColor,
-      letterHeightDeg: settings.letterHeightDeg,
-      sessionMinutes: settings.sessionMinutes,
-      polarity: settings.polarity,
-      audioPrompts: settings.audioPrompts,
-      wordCount: settings.words.length,
-    },
-    results: finalResults,
-  });
-
-  // Every started session is recorded — including "began and gave up before
-  // answering anything", which tells the clinician the prescription is too hard.
-  const finish = (completed: boolean, finalResults: WordResult[]) => {
-    if (finishedRef.current || !startRef.current) return;
-    finishedRef.current = true;
-    const ok = saveSession(buildRecord(completed, finalResults));
-    if (!ok) setSaveFailed(true);
-  };
-
-  // Partial save if the page is backgrounded/evicted mid-session. Uses the
-  // same session id, so the final save simply overwrites it.
-  useEffect(() => {
-    const persistPartial = () => {
-      if (startRef.current && !finishedRef.current) {
-        saveSession(buildRecord(false, resultsRef.current));
-      }
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') persistPartial();
-    };
-    window.addEventListener('pagehide', persistPartial);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.removeEventListener('pagehide', persistPartial);
-      document.removeEventListener('visibilitychange', onVisibility);
-      stopSpeaking();
-    };
+    session.setPaused(paused);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [paused]);
 
   // Disarm the answer buttons briefly whenever the respond screen appears.
   useEffect(() => {
@@ -169,8 +108,9 @@ export default function ExerciseScreen({ settings, calibration, onExit }: Props)
       }
       return refill;
     });
-    if (elapsedSec() >= settings.sessionMinutes * 60) {
-      finish(true, next);
+    if (session.elapsedSec() >= settings.sessionMinutes * 60) {
+      resultsRef.current = next; // finish() reads via ref; state flush is async
+      session.finish(true);
       speak('Well done. The session is complete.', settings.audioPrompts);
       setPhase('done');
     } else {
@@ -179,7 +119,7 @@ export default function ExerciseScreen({ settings, calibration, onExit }: Props)
   };
 
   const endEarly = () => {
-    finish(false, results);
+    session.finish(false);
     stopSpeaking();
     setPhase('done');
   };
@@ -210,10 +150,7 @@ export default function ExerciseScreen({ settings, calibration, onExit }: Props)
           className="btn-huge"
           disabled={blocked}
           onClick={() => {
-            startRef.current = Date.now();
-            sessionIdRef.current = `s-${Date.now()}`;
-            finishedRef.current = false;
-            pausedAccumRef.current = 0;
+            session.begin();
             speak(
               'Look at the coloured dot the whole time. Try to read the word without looking at it. Tap the screen when you are ready to answer.',
               settings.audioPrompts,
@@ -230,7 +167,7 @@ export default function ExerciseScreen({ settings, calibration, onExit }: Props)
 
   if (phase === 'fixate') {
     // Live safety pauses — never show a stimulus whose geometry is wrong.
-    if (!zoomOk || !currentWordFits) {
+    if (paused) {
       return (
         <div className="screen" style={{ justifyContent: 'center' }}>
           <h1>Paused</h1>
@@ -289,7 +226,7 @@ export default function ExerciseScreen({ settings, calibration, onExit }: Props)
       <p style={{ textAlign: 'center', fontSize: '1.6rem' }}>
         You read {readCount} of {results.length} words.
       </p>
-      {saveFailed && (
+      {session.saveFailed && (
         <p className="warning">
           This session could not be saved on the device (storage full or restricted).
           Please tell your clinician.

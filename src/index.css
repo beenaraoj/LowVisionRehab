@@ -235,6 +235,20 @@ button:disabled {
   font-size: 1.1rem;
 }
 
+.trend-card {
+  border: 3px solid var(--btn-border);
+  border-radius: 16px;
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.trend-message {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
 .session-item {
   border: 2px solid var(--muted);
   border-radius: 12px;

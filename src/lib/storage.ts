@@ -70,6 +70,9 @@ export const DEFAULT_SETTINGS: ExerciseSettings = {
   sessionMinutes: 5,
   polarity: 'dark',
   audioPrompts: true,
+  letterStartDeg: 2,
+  fixationTargetSec: 30,
+  fixationTrials: 5,
 };
 
 const GAZE_DIRECTIONS: GazeDirection[] = ['inferior', 'superior', 'left', 'right'];
@@ -108,6 +111,15 @@ function sanitizeSettings(raw: Partial<ExerciseSettings> | null): ExerciseSettin
       : d.sessionMinutes,
     polarity: POLARITIES.includes(raw.polarity as Polarity) ? (raw.polarity as Polarity) : d.polarity,
     audioPrompts: typeof raw.audioPrompts === 'boolean' ? raw.audioPrompts : d.audioPrompts,
+    letterStartDeg: isFiniteInRange(raw.letterStartDeg, 0.5, 5)
+      ? raw.letterStartDeg
+      : d.letterStartDeg,
+    fixationTargetSec: isFiniteInRange(raw.fixationTargetSec, 5, 120)
+      ? raw.fixationTargetSec
+      : d.fixationTargetSec,
+    fixationTrials: isFiniteInRange(raw.fixationTrials, 1, 10)
+      ? raw.fixationTrials
+      : d.fixationTrials,
   };
 }
 

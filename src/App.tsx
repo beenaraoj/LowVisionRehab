@@ -5,9 +5,20 @@ import HomeScreen from './screens/HomeScreen';
 import CalibrationScreen from './screens/CalibrationScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ExerciseScreen from './screens/ExerciseScreen';
+import LetterTestScreen from './screens/LetterTestScreen';
+import FixationDrillScreen from './screens/FixationDrillScreen';
+import ProgressScreen from './screens/ProgressScreen';
 import LogScreen from './screens/LogScreen';
 
-export type Screen = 'home' | 'calibration' | 'settings' | 'exercise' | 'log';
+export type Screen =
+  | 'home'
+  | 'calibration'
+  | 'settings'
+  | 'exercise'
+  | 'letter-test'
+  | 'fixation-drill'
+  | 'progress'
+  | 'log';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
@@ -32,6 +43,16 @@ export default function App() {
     setSettings(s);
   };
 
+  const goHome = () => setScreen('home');
+
+  // Every exercise requires calibration; fall back to home (which offers it).
+  if (
+    (screen === 'exercise' || screen === 'letter-test' || screen === 'fixation-drill') &&
+    !calibration
+  ) {
+    return <HomeScreen calibrated={false} onNavigate={setScreen} />;
+  }
+
   switch (screen) {
     case 'calibration':
       return (
@@ -39,9 +60,9 @@ export default function App() {
           calibration={calibration}
           onSave={(cal) => {
             updateCalibration(cal);
-            setScreen('home');
+            goHome();
           }}
-          onBack={() => setScreen('home')}
+          onBack={goHome}
         />
       );
     case 'settings':
@@ -51,23 +72,31 @@ export default function App() {
           calibration={calibration}
           onSave={(s) => {
             updateSettings(s);
-            setScreen('home');
+            goHome();
           }}
-          onBack={() => setScreen('home')}
+          onBack={goHome}
         />
       );
     case 'exercise':
-      return calibration ? (
-        <ExerciseScreen
-          settings={settings}
-          calibration={calibration}
-          onExit={() => setScreen('home')}
-        />
-      ) : (
-        <HomeScreen calibrated={false} onNavigate={setScreen} />
+      return (
+        <ExerciseScreen settings={settings} calibration={calibration!} onExit={goHome} />
       );
+    case 'letter-test':
+      return (
+        <LetterTestScreen settings={settings} calibration={calibration!} onExit={goHome} />
+      );
+    case 'fixation-drill':
+      return (
+        <FixationDrillScreen
+          settings={settings}
+          calibration={calibration!}
+          onExit={goHome}
+        />
+      );
+    case 'progress':
+      return <ProgressScreen onBack={goHome} />;
     case 'log':
-      return <LogScreen onBack={() => setScreen('home')} />;
+      return <LogScreen onBack={goHome} />;
     default:
       return <HomeScreen calibrated={calibration !== null} onNavigate={setScreen} />;
   }
