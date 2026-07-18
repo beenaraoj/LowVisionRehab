@@ -18,6 +18,14 @@ export interface Calibration {
   distanceCm: number;
   method: 'card' | 'screen-size';
   savedAt: string; // ISO date
+  /**
+   * window.screen dimensions (CSS points) captured at save time. If these no
+   * longer match at exercise time (e.g. iPadOS Display Zoom was changed, or the
+   * page moved to a different device), the calibration is stale and exercises
+   * must be blocked until recalibration.
+   */
+  screenW?: number;
+  screenH?: number;
 }
 
 export interface ExerciseSettings {
@@ -29,6 +37,8 @@ export interface ExerciseSettings {
   words: string[];
   sessionMinutes: number;
   polarity: Polarity;
+  /** Speak short prompts (instructions, "Did you read the word?") via speech synthesis */
+  audioPrompts: boolean;
 }
 
 export interface WordResult {

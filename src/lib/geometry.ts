@@ -14,11 +14,6 @@ export function degreesToPx(deg: number, cal: Calibration): number {
   return Math.tan((deg * Math.PI) / 180) * cal.distanceCm * cal.pxPerCm;
 }
 
-/** Inverse of degreesToPx, for displaying what an on-screen length subtends. */
-export function pxToDegrees(px: number, cal: Calibration): number {
-  return (Math.atan(px / (cal.distanceCm * cal.pxPerCm)) * 180) / Math.PI;
-}
-
 /** ISO/IEC 7810 ID-1 card (credit card) width in cm — the card-match reference. */
 export const CARD_WIDTH_CM = 8.56;
 
@@ -78,4 +73,33 @@ export function fontSizeForLetterHeight(letterHeightDeg: number, cal: Calibratio
 /** Fixation dot diameter: fixed 0.5° of visual angle, never below 16px. */
 export function dotDiameterPx(cal: Calibration): number {
   return Math.max(16, degreesToPx(0.5, cal));
+}
+
+/** Longest word in a list, in characters (floor of 1 to avoid degenerate zero-width checks). */
+export function longestWordLength(words: string[]): number {
+  return words.reduce((m, w) => Math.max(m, w.length), 1);
+}
+
+/**
+ * THE single safety fit-check, shared by the settings preview and the
+ * exercise. A stimulus that does not fully fit on screen must never be
+ * shown — a clipped word silently trains the wrong eccentricity.
+ *
+ * Word box estimate: ~0.6em average advance width per character and 1em
+ * height for a bold sans face. Kept deliberately conservative; if this
+ * constant is ever tuned, every caller updates together.
+ */
+export function stimulusFits(
+  wordLength: number,
+  fontPx: number,
+  offset: { dx: number; dy: number },
+  viewportW: number,
+  viewportH: number,
+): boolean {
+  const wordHalfW = (wordLength * fontPx * 0.6) / 2;
+  const wordHalfH = fontPx / 2;
+  return (
+    Math.abs(offset.dx) + wordHalfW < viewportW / 2 &&
+    Math.abs(offset.dy) + wordHalfH < viewportH / 2
+  );
 }

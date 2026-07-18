@@ -6,15 +6,17 @@ interface Props {
   onBack: () => void;
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
+// One formatter for all rows — constructing Intl.DateTimeFormat per call is
+// one of the most expensive per-call operations in JS on mobile.
+const DATE_FMT = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
+const PAGE_SIZE = 50;
 
 function fmtDuration(sec: number): string {
   const m = Math.floor(sec / 60);
@@ -25,6 +27,7 @@ function fmtDuration(sec: number): string {
 /** Local session history — clinician-facing for now; export comes later. */
 export default function LogScreen({ onBack }: Props) {
   const [sessions] = useState<SessionRecord[]>(loadSessions);
+  const [shown, setShown] = useState(PAGE_SIZE);
 
   return (
     <div className="screen">
@@ -35,11 +38,11 @@ export default function LogScreen({ onBack }: Props) {
 
       {sessions.length === 0 && <p className="muted">No sessions recorded yet.</p>}
 
-      {sessions.map((s) => {
+      {sessions.slice(0, shown).map((s) => {
         const read = s.results.filter((r) => r.read).length;
         return (
           <div key={s.id} className="session-item">
-            <strong>{fmtDate(s.startedAt)}</strong>
+            <strong>{DATE_FMT.format(new Date(s.startedAt))}</strong>
             <span>
               Dot reading — {s.settings.gazeDirection} {s.settings.eccentricityDeg}°, letters{' '}
               {s.settings.letterHeightDeg}°
@@ -51,6 +54,12 @@ export default function LogScreen({ onBack }: Props) {
           </div>
         );
       })}
+
+      {sessions.length > shown && (
+        <button onClick={() => setShown((n) => n + PAGE_SIZE)}>
+          Show older ({sessions.length - shown} more)
+        </button>
+      )}
     </div>
   );
 }

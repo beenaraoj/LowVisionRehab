@@ -133,7 +133,6 @@ button:active {
 /* --- Form inputs --- */
 
 input[type='number'],
-input[type='text'],
 textarea {
   font-family: inherit;
   font-size: 1.3rem;
@@ -206,14 +205,17 @@ input[type='range'] {
   color: var(--fg);
 }
 
-.end-button {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  min-height: 60px;
-  min-width: 100px;
-  font-size: 1rem;
-  opacity: 0.55;
+/* Early-exit button: visually secondary to Yes/No but still fully readable —
+   never dimmed or shrunk for users with central vision loss. */
+.btn-end {
+  border-color: var(--muted);
+  min-height: 72px;
+  font-size: 1.2rem;
+  margin-top: 1.5rem;
+}
+
+button:disabled {
+  opacity: 0.4;
 }
 
 /* Card-match calibration rectangle */

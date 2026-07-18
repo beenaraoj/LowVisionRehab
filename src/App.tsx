@@ -19,12 +19,16 @@ export default function App() {
   }, [settings.polarity]);
 
   const updateCalibration = (cal: Calibration) => {
-    saveCalibration(cal);
+    if (!saveCalibration(cal)) {
+      alert('Could not save the calibration on this device (storage full or restricted).');
+    }
     setCalibration(cal);
   };
 
   const updateSettings = (s: ExerciseSettings) => {
-    saveSettings(s);
+    if (!saveSettings(s)) {
+      alert('Could not save the settings on this device (storage full or restricted).');
+    }
     setSettings(s);
   };
 

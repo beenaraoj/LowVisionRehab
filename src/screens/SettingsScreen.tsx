@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Calibration, DotColor, ExerciseSettings, GazeDirection } from '../types';
 import {
   degreesToPx,
   describePlacement,
   fontSizeForLetterHeight,
+  longestWordLength,
+  stimulusFits,
   wordOffsetPx,
 } from '../lib/geometry';
+import { useViewportSize } from '../lib/useViewport';
 import { DOT_COLORS } from '../lib/colors';
+import DotWordDisplay from '../components/DotWordDisplay';
 
 interface Props {
   settings: ExerciseSettings;
@@ -26,33 +30,32 @@ const DIRECTIONS: { value: GazeDirection; label: string }[] = [
 export default function SettingsScreen({ settings, calibration, onSave, onBack }: Props) {
   const [s, setS] = useState<ExerciseSettings>(settings);
   const [wordsText, setWordsText] = useState(settings.words.join('\n'));
+  const { vw, vh } = useViewportSize();
 
   const set = <K extends keyof ExerciseSettings>(key: K, value: ExerciseSettings[K]) =>
     setS((prev) => ({ ...prev, [key]: value }));
 
-  const words = wordsText
-    .split('\n')
-    .map((w) => w.trim())
-    .filter(Boolean);
+  const words = useMemo(
+    () =>
+      wordsText
+        .split('\n')
+        .map((w) => w.trim())
+        .filter(Boolean),
+    [wordsText],
+  );
+  const longestWord = useMemo(() => longestWordLength(words), [words]);
 
-  // Fit check: will the word land on screen at the calibrated distance?
+  // Fit check via the SAME shared helper the exercise uses. Warn-but-allow:
+  // this window may not be the patient device, so the authoritative block
+  // happens on the exercise's own screen.
   let fitWarning: string | null = null;
   let offset = { dx: 0, dy: 0 };
   if (calibration) {
     offset = wordOffsetPx(s.gazeDirection, s.eccentricityDeg, calibration);
     const fontPx = fontSizeForLetterHeight(s.letterHeightDeg, calibration);
-    const halfW = window.innerWidth / 2;
-    const halfH = window.innerHeight / 2;
-    const longestWord = words.reduce((m, w) => Math.max(m, w.length), 4);
-    // rough word box: width ~ 0.6em per char, height ~ 1em
-    const wordHalfW = (longestWord * fontPx * 0.6) / 2;
-    const wordHalfH = fontPx / 2;
-    if (
-      Math.abs(offset.dx) + wordHalfW > halfW ||
-      Math.abs(offset.dy) + wordHalfH > halfH
-    ) {
+    if (!stimulusFits(longestWord, fontPx, offset, vw, vh)) {
       fitWarning =
-        'At this eccentricity, text size and viewing distance, the word will not fit on this screen. Reduce eccentricity/text size or sit further away.';
+        'At this eccentricity, text size and viewing distance, the longest word will not fit on this screen. The exercise will refuse to start on a screen where it does not fit.';
     }
   }
 
@@ -182,6 +185,24 @@ export default function SettingsScreen({ settings, calibration, onSave, onBack }
       </div>
 
       <div className="field">
+        <label>Audio prompts</label>
+        <div className="choices">
+          <button
+            className={s.audioPrompts ? 'selected' : ''}
+            onClick={() => set('audioPrompts', true)}
+          >
+            Spoken prompts on
+          </button>
+          <button
+            className={!s.audioPrompts ? 'selected' : ''}
+            onClick={() => set('audioPrompts', false)}
+          >
+            Off
+          </button>
+        </div>
+      </div>
+
+      <div className="field">
         <label htmlFor="words">Word list (one per line)</label>
         <textarea
           id="words"
@@ -206,26 +227,14 @@ export default function SettingsScreen({ settings, calibration, onSave, onBack }
               alignSelf: 'center',
             }}
           >
-            <div
-              className="fixation-dot"
-              style={{
-                left: '50%',
-                top: '50%',
-                width: 18,
-                height: 18,
-                background: DOT_COLORS[s.dotColor],
-              }}
+            <DotWordDisplay
+              dx={offset.dx * previewScale}
+              dy={offset.dy * previewScale}
+              dotPx={18}
+              fontPx={22}
+              dotColor={s.dotColor}
+              word={words[0] ?? 'word'}
             />
-            <span
-              className="target-word"
-              style={{
-                left: `calc(50% + ${offset.dx * previewScale}px)`,
-                top: `calc(50% + ${offset.dy * previewScale}px)`,
-                fontSize: 22,
-              }}
-            >
-              {words[0] ?? 'word'}
-            </span>
           </div>
           <p className="muted">
             Preview not to scale. True offset on this screen:{' '}

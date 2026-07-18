@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Calibration } from '../types';
 import { CARD_WIDTH_CM, degreesToPx } from '../lib/geometry';
+import { useViewportSize } from '../lib/useViewport';
 
 interface Props {
   calibration: Calibration | null;
@@ -9,6 +10,12 @@ interface Props {
 }
 
 type Method = 'card' | 'screen-size';
+
+const MIN_CARD_PX = 150;
+const maxCardPx = () => Math.min(700, window.innerWidth - 40);
+const clampCard = (v: number) => Math.max(MIN_CARD_PX, Math.min(maxCardPx(), v));
+
+const screenDiagPx = () => Math.sqrt(window.screen.width ** 2 + window.screen.height ** 2);
 
 /**
  * Establishes the two numbers every exercise depends on:
@@ -20,24 +27,38 @@ type Method = 'card' | 'screen-size';
 export default function CalibrationScreen({ calibration, onSave, onBack }: Props) {
   const [method, setMethod] = useState<Method>(calibration?.method ?? 'card');
   const [cardPx, setCardPx] = useState(() =>
-    calibration ? calibration.pxPerCm * CARD_WIDTH_CM : 320,
+    calibration ? clampCard(calibration.pxPerCm * CARD_WIDTH_CM) : 320,
   );
-  const [diagonalIn, setDiagonalIn] = useState(11);
+  const { vw } = useViewportSize();
+  // Keep the outline inside the screen if the device rotates mid-calibration.
+  const maxCard = Math.min(700, vw - 40);
+  useEffect(() => {
+    setCardPx((v) => Math.max(MIN_CARD_PX, Math.min(maxCard, v)));
+  }, [maxCard]);
+  // Restore the diagonal a saved screen-size calibration was derived from —
+  // otherwise re-saving after a distance tweak would silently recompute
+  // pxPerCm from a wrong default diagonal.
+  const [diagonalIn, setDiagonalIn] = useState(() =>
+    calibration?.method === 'screen-size'
+      ? Math.round((screenDiagPx() / (calibration.pxPerCm * 2.54)) * 10) / 10
+      : 11,
+  );
   const [distanceCm, setDistanceCm] = useState(calibration?.distanceCm ?? 40);
 
-  const screenDiagPx = Math.sqrt(window.screen.width ** 2 + window.screen.height ** 2);
-
   const pxPerCm =
-    method === 'card' ? cardPx / CARD_WIDTH_CM : screenDiagPx / (diagonalIn * 2.54);
-
-  const preview: Calibration = {
-    pxPerCm,
-    distanceCm,
-    method,
-    savedAt: new Date().toISOString(),
-  };
+    method === 'card' ? cardPx / CARD_WIDTH_CM : screenDiagPx() / (diagonalIn * 2.54);
 
   const valid = pxPerCm > 5 && pxPerCm < 500 && distanceCm >= 15 && distanceCm <= 200;
+
+  const save = () =>
+    onSave({
+      pxPerCm,
+      distanceCm,
+      method,
+      savedAt: new Date().toISOString(), // stamped at save, not render
+      screenW: window.screen.width,
+      screenH: window.screen.height,
+    });
 
   return (
     <div className="screen">
@@ -70,16 +91,22 @@ export default function CalibrationScreen({ calibration, onSave, onBack }: Props
           <div className="card-outline" style={{ width: cardPx }} />
           <input
             type="range"
-            min={150}
-            max={Math.min(700, window.innerWidth - 40)}
+            min={MIN_CARD_PX}
+            max={maxCard}
             step={1}
             value={cardPx}
-            onChange={(e) => setCardPx(Number(e.target.value))}
+            onChange={(e) =>
+              setCardPx(Math.max(MIN_CARD_PX, Math.min(maxCard, Number(e.target.value))))
+            }
             aria-label="Card outline width"
           />
           <div className="btn-row">
-            <button onClick={() => setCardPx((v) => v - 2)}>− Smaller</button>
-            <button onClick={() => setCardPx((v) => v + 2)}>+ Larger</button>
+            <button onClick={() => setCardPx((v) => Math.max(MIN_CARD_PX, v - 2))}>
+              − Smaller
+            </button>
+            <button onClick={() => setCardPx((v) => Math.min(maxCard, v + 2))}>
+              + Larger
+            </button>
           </div>
         </>
       ) : (
@@ -107,13 +134,16 @@ export default function CalibrationScreen({ calibration, onSave, onBack }: Props
       </div>
 
       <p className="muted">
-        Check: at this calibration, 1° of visual angle = {degreesToPx(1, preview).toFixed(0)}{' '}
+        Check: at this calibration, 1° of visual angle ={' '}
+        {valid
+          ? degreesToPx(1, { pxPerCm, distanceCm, method, savedAt: '' }).toFixed(0)
+          : '—'}{' '}
         px on screen.
       </p>
 
       {!valid && <p className="warning">Calibration values look out of range — please check.</p>}
 
-      <button className="btn-huge" disabled={!valid} onClick={() => onSave(preview)}>
+      <button className="btn-huge" disabled={!valid} onClick={save}>
         Save Calibration
       </button>
     </div>
