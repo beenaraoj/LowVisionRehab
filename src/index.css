@@ -1,0 +1,248 @@
+/* Low-vision-first styles: huge targets, high contrast, minimal chrome. */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg: #000;
+  --fg: #fff;
+  --accent: #ffd60a;
+  --muted: #9a9a9a;
+  --btn-bg: #1c1c1e;
+  --btn-border: #fff;
+  --danger: #ff453a;
+  --ok: #30d158;
+  font-size: 20px; /* base rem — everything scales up from here */
+}
+
+.light {
+  --bg: #fff;
+  --fg: #000;
+  --muted: #555;
+  --btn-bg: #f2f2f2;
+  --btn-border: #000;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.screen {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1.2rem;
+  gap: 1rem;
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.8rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+}
+
+p,
+label {
+  font-size: 1.1rem;
+  line-height: 1.45;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* --- Buttons: minimum 60px targets, most are much larger --- */
+
+button {
+  font-family: inherit;
+  color: var(--fg);
+  background: var(--btn-bg);
+  border: 3px solid var(--btn-border);
+  border-radius: 16px;
+  min-height: 64px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+.btn-huge {
+  width: 100%;
+  min-height: 110px;
+  font-size: 1.7rem;
+  border-radius: 22px;
+}
+
+.btn-yes {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.btn-no {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-row > button {
+  flex: 1;
+}
+
+/* Segmented choice groups (direction, color, etc.) */
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.choices button {
+  flex: 1 1 auto;
+  min-width: 7rem;
+}
+
+.choices button.selected {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+/* --- Form inputs --- */
+
+input[type='number'],
+input[type='text'],
+textarea {
+  font-family: inherit;
+  font-size: 1.3rem;
+  color: var(--fg);
+  background: var(--btn-bg);
+  border: 3px solid var(--btn-border);
+  border-radius: 12px;
+  padding: 0.6rem;
+  min-height: 60px;
+  width: 100%;
+}
+
+textarea {
+  min-height: 10rem;
+}
+
+input[type='range'] {
+  width: 100%;
+  height: 60px;
+  accent-color: var(--accent);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Stepper: label + minus/value/plus */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.stepper button {
+  width: 76px;
+  min-width: 76px;
+  font-size: 1.8rem;
+}
+
+.stepper .value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  min-width: 6.5rem;
+  text-align: center;
+}
+
+/* --- Exercise (patient mode) --- */
+
+.exercise-stage {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.fixation-dot {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.target-word {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--fg);
+}
+
+.end-button {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  min-height: 60px;
+  min-width: 100px;
+  font-size: 1rem;
+  opacity: 0.55;
+}
+
+/* Card-match calibration rectangle */
+.card-outline {
+  border: 4px solid var(--accent);
+  border-radius: 10px;
+  /* real card aspect ratio 85.6 x 53.98 mm */
+  aspect-ratio: 85.6 / 53.98;
+}
+
+.warning {
+  border: 3px solid var(--danger);
+  border-radius: 12px;
+  padding: 0.8rem;
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.session-item {
+  border: 2px solid var(--muted);
+  border-radius: 12px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.nav-back {
+  align-self: flex-start;
+  min-width: 130px;
+}
